@@ -2,7 +2,7 @@ version: '3'
 services:
 
   directus:
-    container_name: directus-auto-translation
+    container_name: directus-auto-backup
     image: directus/directus:9.16.1
     ports:
       - 8055:8055
@@ -13,8 +13,10 @@ services:
       - ./uploads:/directus/uploads
       # Make sure to also mount the volume when using SQLite
       - ./database:/directus/database
-      # If you want to load extensions from the host
-      - ./auto-backup-hook/dist/index.js:/directus/extensions/hooks/auto-backup-hook/index.js
+      # If you want to load extensions from builded files
+      #- ./auto-backup-hook/dist/index.js:/directus/extensions/hooks/auto-backup-hook/index.js
+      # Hotreload dev
+      - ./auto-backup-hook/src:/directus/extensions/hooks/auto-backup-hook
     networks:
       - directus
     environment:

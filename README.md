@@ -2,7 +2,7 @@
     Directus Extension Auto Backup
 </h2>
 <p align="center">
-    <img src="https://raw.githubusercontent.com/FireboltCasters/directus-extension-auto-backup/master/assets/copy-small.gif" alt="backup" style="width:150px;"/>
+    <img src="https://raw.githubusercontent.com/FireboltCasters/directus-extension-auto-backup/master/assets/copy-small.gif" alt="backup" style="height:150px;"/>
 </p>
 
 <p align="center">

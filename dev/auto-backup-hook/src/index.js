@@ -1,124 +1,10 @@
-const ItemsServiceCreator = require("./helper/ItemsServiceCreator");
 const CollectionsServiceCreator = require("./helper/CollectionsServiceCreator");
-const Translator = require("./Translator");
-const TranslatorSettings = require("./TranslatorSettings");
-const DirectusCollectionTranslator = require("./DirectusCollectionTranslator");
+const BackupSettings = require("./BackupSettings");
 const getSettingsSchema = require("./schema/schema.js");
 const settingsSchemaYAML = getSettingsSchema();
 const yaml = require('js-yaml');
+const BackupController = require("./BackupController");
 const settingsSchema = yaml.load(settingsSchemaYAML);
-
-async function getAndInitItemsServiceCreatorAndTranslatorSettingsAndTranslatorAndSchema(services, database, getSchema, logger) {
-    let schema = await getSchema();
-    let itemsServiceCreator = new ItemsServiceCreator(services, database, schema);
-    let translatorSettings = new TranslatorSettings(services, database, schema);
-    await translatorSettings.init();
-    let translator = new Translator(translatorSettings, logger);
-    await translator.init();
-    return {
-        itemsServiceCreator: itemsServiceCreator,
-        translatorSettings: translatorSettings,
-        translator: translator,
-        schema: schema
-    }
-}
-
-async function getCurrentItemForTranslation(itemsService, meta) {
-    let currentItem = {}; //For create we don't have a current item
-    let primaryKeys = meta?.keys || [];
-    for (let primaryKey of primaryKeys) { //For update we have a current item
-        currentItem = await itemsService.readOne(primaryKey, {fields: ["translations.*"]});
-        break; //we only need get the first primary key
-    }
-    return currentItem;
-}
-
-async function handleCreateOrUpdate(tablename, payload, meta, context, getSchema, services, logger) {
-    if (payload?.translations) {
-        let database = context.database; //Have to get database here! https://github.com/directus/directus/discussions/13744
-
-        let {
-            itemsServiceCreator,
-            translatorSettings,
-            translator,
-            schema
-        } = await getAndInitItemsServiceCreatorAndTranslatorSettingsAndTranslatorAndSchema(services, database, getSchema, logger);
-
-        let autoTranslate = await translatorSettings.isAutoTranslationEnabled();
-        if (autoTranslate) {
-            let itemsService = await itemsServiceCreator.getItemsService(tablename);
-            let currentItem = await getCurrentItemForTranslation(itemsService, meta);
-            return await DirectusCollectionTranslator.modifyPayloadForTranslation(currentItem, payload, translator, translatorSettings, itemsServiceCreator, schema, tablename);
-        }
-    }
-    return payload;
-}
-
-function registerCollectionAutoTranslation(filter, getSchema, services, logger) {
-    let events = ["create", "update"];
-    for (let event of events) {
-        filter(
-            "items." + event,
-            async (payload, meta, context) => {
-                let tablename = meta?.collection;
-                return await handleCreateOrUpdate(tablename, payload, meta, context, getSchema, services, logger);
-            }
-        );
-    }
-}
-
-async function checkAllCollectionsForMissingTranslations(payload, meta, context, getSchema, services, logger) {
-    let database = context.database; //Have to get database here! https://github.com/directus/directus/discussions/13744
-
-    let {
-        itemsServiceCreator,
-        translatorSettings,
-        translator,
-        schema
-    } = await getAndInitItemsServiceCreatorAndTranslatorSettingsAndTranslatorAndSchema(services, database, getSchema, logger);
-    let autoTranslate = await translatorSettings.isAutoTranslationEnabled();
-    if (autoTranslate) {
-        //let itemsService = await itemsServiceCreator.getItemsService(tablename);
-
-        let currentItem = await getCurrentItemForTranslation(itemsService, meta);
-        return await DirectusCollectionTranslator.modifyPayloadForTranslation(currentItem, payload, translator, translatorSettings, itemsServiceCreator, schema, tablename);
-    }
-}
-
-function registerLanguagesFilter(filter, getSchema, services, logger) {
-    const tableName = "languages";
-    filter(
-        tableName+".items." + "create",
-        async (payload, meta, context) => {
-            return await checkAllCollectionsForMissingTranslations(payload, meta, context, getSchema, services, logger);
-        }
-    );
-    filter(
-        tableName+".items." + "update",
-        async (payload, meta, context) => {
-            //return await checkAllCollectionsForMissingTranslations(payload, meta, context, getSchema, services, logger);
-        }
-    );
-}
-
-
-function registerAuthKeyReloader(filter, translator) {
-    filter(
-        TranslatorSettings.TABLENAME + ".items.update",
-        async (payload, meta, context) => {
-            if (payload?.auth_key !== undefined) { // Auth Key changed
-                try {
-                    await translator.reloadAuthKey(payload?.auth_key); //Try to reload auth key
-                    const correctObj = await translator.getSettingsAuthKeyCorrectObject(); //
-                    payload = {...payload, ...correctObj}; //Set settings to valid
-                } catch (err) { //Auth Key not valid
-                    payload = {...payload, ...translator.getSettingsAuthKeyErrorObject(err)};
-                }
-            }
-            return payload;
-        }
-    );
-}
 
 async function checkSettingsCollection(services, database, schema) {
     let collectionsServiceCreator = new CollectionsServiceCreator(services, database, schema);
@@ -127,22 +13,22 @@ async function checkSettingsCollection(services, database, schema) {
         let collections = await collectionsService.readByQuery(); //no query params possible !
         let collectionFound = false;
         for (let collection of collections) {
-            if (collection.collection === TranslatorSettings.TABLENAME) {
+            if (collection.collection === BackupSettings.TABLENAME) {
                 collectionFound = true;
                 break;
             }
         }
         if (!collectionFound) {
-            console.log("Collection "+TranslatorSettings.TABLENAME+" not found");
+            console.log("Collection "+BackupSettings.TABLENAME+" not found");
             let settingsSchemaCollection = settingsSchema.collections[0];
             let settingsSchemaFields = settingsSchema.fields;
 
-            console.log("Creating "+TranslatorSettings.TABLENAME+" collection");
+            console.log("Creating "+BackupSettings.TABLENAME+" collection");
              await collectionsService.createOne({
                  ...settingsSchemaCollection,
                  fields: settingsSchemaFields
              });
-            console.log("Created "+TranslatorSettings.TABLENAME+" collection");
+            console.log("Created "+BackupSettings.TABLENAME+" collection");
         } else {
             //console.log("Settings collection found");
         }
@@ -161,8 +47,24 @@ module.exports = async function ({filter, action, init, schedule}, {
 }) {
     try{
         console.log("Init auto backup")
-        //let schema = await getSchema();
-        //await checkSettingsCollection(services, database, schema)
+        let schema = await getSchema();
+        await checkSettingsCollection(services, database, schema)
+
+        let backupController = new BackupController(services, database, schema);
+        await backupController.init();
+
+        action(
+            BackupSettings.TABLENAME + ".items.update",
+            async (meta, context) => {
+                //TODO check if field "parse_meals" is active
+                try {
+                    await backupController.checkIfBackup();
+                } catch (err) {
+                    console.log(err);
+                }
+                //TODO set field "parse_meals" to false
+            }
+        );
 
         //let translatorSettings = new TranslatorSettings(services, database, schema);
         //await translatorSettings.init();
