@@ -28,7 +28,7 @@ module.exports = class BackupController {
 
     async init(){
         await this.backupSettings.init();
-        this.createBackup();
+        //this.createBackup();
     }
 
     async log(oldlog, additionalLog){

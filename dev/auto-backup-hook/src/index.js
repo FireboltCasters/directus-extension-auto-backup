@@ -77,7 +77,7 @@ module.exports = async function ({filter, action, init, schedule}, {
     } catch (err) {
         let errMsg = err.toString();
         if(errMsg.includes("no such table: directus_collections")){
-            console.log("++++++++++ Auto Translation +++++++++++");
+            console.log("++++++++++ Auto Backup +++++++++++");
             console.log("++++ Database not initialized yet +++++");
             console.log("++ Restart Server again after setup +++");
             console.log("+++++++++++++++++++++++++++++++++++++++");
