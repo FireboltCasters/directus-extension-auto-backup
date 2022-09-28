@@ -1,0 +1,22 @@
+name: NPM Publish
+on:
+  push:
+    branches:
+      - main
+jobs:
+  build:
+    if: ${{ !startsWith(github.event.head_commit.message, '[RELEASE]') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions/setup-node@v2
+        with:
+          node-version: '12.x'
+          registry-url: 'https://registry.npmjs.org'
+      - run: git config --global user.name 'Firebolt Caster'
+      - run: git config --global user.email 'nilsbaumgartner@live.de'
+      - run: cp README.md ./dev/auto-translation-hook/README.md
+      - run: cd ./dev/auto-translation-hook && npm ci
+      - run: cd ./dev/auto-translation-hook && npm run release
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
