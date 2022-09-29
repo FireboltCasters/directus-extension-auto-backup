@@ -67,6 +67,30 @@ module.exports = class BackupSettings {
         return settings?.backup_location_folder_id;
     }
 
+    async getBackupFileFormatPrefix(){
+        let settings = await this.getSettings();
+        let format = settings?.backup_file_format_prefix;
+        if(format === null || format === undefined){
+            return "backup-";
+        }
+        return format || "";
+    }
+
+    async getBackupFileFormatPostfix(){
+        let settings = await this.getSettings();
+        return settings?.backup_file_format_postfix || "";
+    }
+
+    async getBackupFileFormat() {
+        let settings = await this.getSettings();
+        let format = settings?.backup_file_format;
+        if(format === null || format === undefined){
+            return default_sqlite3_backup_file_format;
+        }
+        return format || "";
+    }
+
+
     async setBackupLocationFileLibraryFolderID(folderID){
         await this.setSettings({backup_location_folder_id: folderID});
     }

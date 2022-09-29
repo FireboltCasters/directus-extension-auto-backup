@@ -2,6 +2,8 @@ const BackupSettings = require("./BackupSettings");
 const BackupControllerSQLITE = require("./BackupControllerSQLITE");
 const fs = require('fs')
 const path = require('path')
+const dateFormat = require('date-fns/format')
+const BackupLogger = require("./BackupLogger");
 const env = process.env;
 
 module.exports = class BackupController {
@@ -14,6 +16,7 @@ module.exports = class BackupController {
         this.finished = true;
         this.filesService = this.getFileService(schema, services);
         this.foldersService = this.getFolderService(schema, services);
+        this.logger = new BackupLogger(this.backupSettings);
     }
 
     getFileService(schema, services){
@@ -31,16 +34,13 @@ module.exports = class BackupController {
         //this.createBackup();
     }
 
-    async log(oldlog, additionalLog){
-        oldlog+=new Date().toISOString()+": "+additionalLog+"\n\n";
-        //await this.backupSettings.setLatestLog(oldlog);
-        return oldlog;
-    }
-
-    async getNewBackupFilenameWithoutExtension(){
+    async getNewBackupFilenameWithoutExtension(dateBackupCreated){
         //TODO use default_sqlite3_backup_file_format
+        let prefix = await this.backupSettings.getBackupFileFormatPrefix();
+        let suffix = await this.backupSettings.getBackupFileFormatPostfix();
+        let format = await this.backupSettings.getBackupFileFormat();
 
-        let now = new Date();
+        let now = dateBackupCreated || new Date();
         let year = now.getFullYear();
         let month = now.getMonth()+1;
         let day = now.getDate();
@@ -48,8 +48,15 @@ module.exports = class BackupController {
         let minute = now.getMinutes();
         let second = now.getSeconds();
         let millisecond = now.getMilliseconds();
-        let newBackupFilename = "backup-"+year+"-"+month+"-"+day+"-"+hour+"-"+minute+"-"+second+"-"+millisecond;
-        return newBackupFilename;
+        let timestampFormated = year+"-"+month+"-"+day+"-"+hour+"-"+minute+"-"+second+"-"+millisecond;
+        try{
+            let formatedDate = dateFormat(now, format);
+            timestampFormated = formatedDate;
+        } catch(e){
+            await this.logger.log("Error: Could not format date but using default: "+e);
+        }
+
+        return prefix+timestampFormated+suffix;
     }
 
     // apply snapshot https://github.com/directus/directus/blob/3761abf1f05941d88c5d284414227d353bfe7ebe/api/src/utils/apply-snapshot.ts
@@ -68,19 +75,18 @@ module.exports = class BackupController {
 
     async getTempFolderPath(){
         let rootFolderPath = await this.getDirectusRootFolderPath();
+        //
         let tempFolderPath = path.join(rootFolderPath, "directus", "database", "temp"); // get path to temp folder
         return tempFolderPath;
     }
 
-    async deleteTempFolder(log){
+    async deleteTempFolder(){
         let tempFolderPath = await this.getTempFolderPath()
-        console.log("Delete temp folder: "+tempFolderPath);
-        log = await this.log(log, "Delete temp folder: "+tempFolderPath);
+        await this.logger.log("Delete temp folder: "+tempFolderPath);
         if (fs.existsSync(tempFolderPath)){
             fs.rmSync(tempFolderPath, { recursive: true });
         }
-        console.log("Temp folder deleted");
-        log = await this.log(log, "Temp folder deleted");
+        await this.logger.log("Temp folder deleted");
     }
 
     getFileExtension(filePath){
@@ -88,117 +94,113 @@ module.exports = class BackupController {
         return fileExtension;
     }
 
-    async moveBackupFileToBackupFolder(tempBackupFilePath, now, log){
-        console.log("Move backup file to backup folder");
-        log = await this.log(log, "Move backup file to backup folder");
+    async createOrGetFileLibraryFolder(folderName, folderId){
+        if(!folderId){
+            await this.logger.log("Backup location folder id not set");
+            const createdFolder = await this.foldersService.createOne({
+                name: folderName,
+            }); //create one
+            await this.logger.log("Backup location folder created: "+createdFolder);
+            folderId = createdFolder;
+            if(!folderId){
+                console.log("Error: Could not create folder");
+                await this.logger.log("Error: Could not create folder");
+                return null;
+            } else {
+                await this.logger.log("Backup location folder id set: "+folderId);
+                await this.backupSettings.setBackupLocationFileLibraryFolderID(folderId);
+                return folderId;
+            }
+        } else {
+            await this.logger.log("Folder id set: "+folderId+" - check if folder exists");
+            const folder_instance = await folderService.readOne(folderId);
+            if(!folder_instance){
+                await this.logger.log("Folder instance not found: "+folderId+" - create folder");
+                return await this.createOrGetFileLibraryFolder(folderName, null);
+            } else {
+                // update folder name
+                await this.logger.log("Folder instance found: "+folderId+" - update folder name");
+                await this.backupSettings.setBackupLocationFileLibraryFolderName(folder_instance.name);
+                return folderId;
+            }
+        }
+    }
+
+    getFileLibraryStorageLocation(){
+        let storageLocationsString = env.STORAGE_LOCATIONS || "";
+        let storageLocations = storageLocationsString.split(",");
+        return storageLocations[0];
+    }
+
+    async moveBackupFileToFilelibrary(tempBackupFilePath, backupFilenameWithExtension){
+        await this.logger.log("Move backup file to file library");
+        let folderNameFromSettings = await this.backupSettings.getBackupLocationFileLibraryFolderName();
+        let folderIdFromSettings = await this.backupSettings.getBackupLocationFileLibraryFolderID();
+
+        let folderId = await this.createOrGetFileLibraryFolder(folderNameFromSettings, folderIdFromSettings);
+        if(!folderId){
+            await this.logger.log("Error: Could not create or get file library folder");
+            return null;
+        } else {
+            let body = {
+                title : backupFilenameWithExtension,
+                tags: ["backup"],
+                filename_download: backupFilenameWithExtension,
+                filesize: fs.statSync(tempBackupFilePath).size,
+                folder: folderId,
+                storage: this.getFileLibraryStorageLocation()
+            };
+
+            let readStream = fs.createReadStream(tempBackupFilePath);
+
+            await this.logger.log("Upload backup file to file library");
+            const importedBackup = await this.filesService.uploadOne(readStream, body);
+            await this.logger.log("Backup file moved to file library");
+        }
+    }
+
+    async moveBackupFileToCustomPath(tempBackupFilePath, backupFilenameWithExtension){
+        await this.logger.log("Move backup file to custom path");
+        let backup_location_custom_path = await this.backupSettings.getBackupLocationCustomPath();
+
+        await this.logger.log("Create if not exists: "+backup_location_custom_path);
+        await this.createFolderIfNotExists(backup_location_custom_path); // create folder if not exists
+
+        let rootFolderPath = await this.getDirectusRootFolderPath();
+        let newBackupFilePath = path.join(rootFolderPath, backup_location_custom_path, backupFilenameWithExtension);
+
+        try{
+            await this.logger.log("Move backup file to custom path: "+newBackupFilePath);
+            fs.copyFileSync(tempBackupFilePath, newBackupFilePath);
+            await this.deleteTempFolder();
+            return true;
+        } catch (error) {
+            console.log(error)
+            await this.logger.log(error.toString());
+            await this.deleteTempFolder();
+            return false;
+        }
+    }
+
+    async moveBackupFileToFinalBackupFolder(tempBackupFilePath, dateBackupCreated){
+        await this.logger.log("Move backup file to backup folder");
 
         let fileExtension = this.getFileExtension(tempBackupFilePath);
-        let backupName = await this.getNewBackupFilenameWithoutExtension(now);
-        let backupFilename = backupName+fileExtension;
+        let backupFilenameWithoutExtension = await this.getNewBackupFilenameWithoutExtension(dateBackupCreated);
+        let backupFilenameWithExtension = backupFilenameWithoutExtension+fileExtension;
 
 
-        console.log("Backup filename: "+backupFilename);
-        log = await this.log(log, "Backup filename: "+backupFilename);
+        console.log("Backup filename: "+backupFilenameWithExtension);
+        await this.logger.log("Backup filename: "+backupFilenameWithExtension);
 
         let backupLocationType = await this.backupSettings.getBackupLocationType();
         console.log("Backup location type: "+backupLocationType);
-        log = await this.log(log, "Backup location type: "+backupLocationType);
+        await this.logger.log("Backup location type: "+backupLocationType);
 
         if(this.backupSettings.isBackupLocationTypeFileLibrary(backupLocationType)){
-            let folderName = await this.backupSettings.getBackupLocationFileLibraryFolderName();
-            let folderId = await this.backupSettings.getBackupLocationFileLibraryFolderID();
-            console.log("Backup location folder name: "+folderName);
-            log = await this.log(log, "Backup location folder name: "+folderName);
-            console.log("Backup location folder id: "+folderId);
-            log = await this.log(log, "Backup location folder id: "+folderId);
-
-            if(!folderId){
-                console.log("Backup location folder id not set");
-                log = await this.log(log, "Backup location folder id not set");
-                const createdFolder = await this.foldersService.createOne({
-                    name: folderName,
-                }); //create one
-                console.log("Backup location folder created: "+createdFolder);
-                log = await this.log(log, "Backup location folder created: "+createdFolder);
-                folderId = createdFolder;
-                if(!folderId){
-                    console.log("Error: Could not create folder");
-                    log = await this.log(log, "Error: Could not create folder");
-                    return;
-                } else {
-                    console.log("Backup location folder id set: "+folderId);
-                    log = await this.log(log, "Backup location folder id set: "+folderId);
-                    await this.backupSettings.setBackupLocationFileLibraryFolderID(folderId);
-                }
-            } else {
-                console.log("Change folder name");
-                log = await this.log(log, "Change folder name");
-                await this.backupSettings.setBackupLocationFileLibraryFolderName("okay");
-
-
-                // https://github.com/directus/directus/blob/main/api/src/services/files.ts
-
-                // let primaryKey = await this.createOne(payload, { emitEvents: false });
-                // payload.filename_disk = primaryKey + (fileExtension || '');
-                // payload.type = 'application/octet-stream';
-                // payload.folder = settings.storage_default_folder;
-                // move file to folder
-                // const { size } = await storage.disk(data.storage).getStat(payload.filename_disk);
-                // payload.filesize = size;
-
-                // 		// We do this in a service without accountability. Even if you don't have update permissions to the file,
-                // 		// we still want to be able to set the extracted values from the file on create
-                // 		const sudoService = new ItemsService('directus_files', {
-                // 			knex: this.knex,
-                // 			schema: this.schema,
-                // 		});
-                //
-                // 		await sudoService.updateOne(primaryKey, payload, { emitEvents: false });
-
-                let storageLocationsString = env.STORAGE_LOCATIONS || "";
-                console.log("storageLocationsString: "+storageLocationsString);
-                log = await this.log(log, "storageLocationsString: "+storageLocationsString);
-                let storageLocations = storageLocationsString.split(",");
-                console.log("storageLocations: "+storageLocations);
-                log = await this.log(log, "storageLocations: "+storageLocations);
-
-                let body = {
-                    filename_download: backupFilename,
-                    folder: folderId,
-                    storage: storageLocations[0]
-                };
-
-                console.log("tempBackupFilePath url: "+tempBackupFilePath);
-                let readStream = fs.createReadStream(tempBackupFilePath);
-
-                const importedBackup = await this.filesService.uploadOne(readStream, body);
-                console.log("Backup file moved to file library");
-                log = await this.log(log, "Backup file moved to file library");
-            }
-
-            //this.filesService
+            await this.moveBackupFileToFilelibrary(tempBackupFilePath, backupFilenameWithExtension);
         } else if(this.backupSettings.isBackupLocationTypeCustomPath(backupLocationType)){
-            let backup_location_custom_path = await this.backupSettings.getBackupLocationCustomPath();
-
-            console.log("Create if not exists: "+backup_location_custom_path);
-            log = await this.log(log, "Create if not exists: "+backup_location_custom_path);
-            await this.createFolderIfNotExists(backup_location_custom_path); // create folder if not exists
-
-            let rootFolderPath = await this.getDirectusRootFolderPath();
-            let newBackupFilePath = path.join(rootFolderPath, backup_location_custom_path, backupFilename);
-
-            try{
-                console.log("Move backup file to custom path: "+newBackupFilePath);
-                log = await this.log(log, "Move backup file to custom path: "+newBackupFilePath);
-                fs.copyFileSync(tempBackupFilePath, newBackupFilePath);
-                log = await this.deleteTempFolder(log);
-                return log;
-            } catch (error) {
-                console.log(error)
-                log = await this.log(log, error.toString());
-                log = await this.deleteTempFolder(log);
-                return log;
-            }
+            await this.moveBackupFileToCustomPath(tempBackupFilePath, backupFilenameWithExtension);
         }
 
     }
@@ -207,9 +209,8 @@ module.exports = class BackupController {
         // check if folder exists
         // create folder if not exists
 
-        let log = "";
-        log = await this.log(log, "Init start backup");
-        let now = new Date();
+        await this.logger.resetLog();
+        await this.logger.log("Init start backup");
 
         let tempFolderPath = await this.getTempFolderPath();
         await this.createFolderIfNotExists(tempFolderPath); // create temp folder if not exists
@@ -217,28 +218,28 @@ module.exports = class BackupController {
         let specificController = null;
         let dbClient = await this.backupSettings.getDBClient();
         if(this.backupSettings.isSQLITE3DBClient(dbClient)){
-            log = await this.log(log, "SQLITE3 DB Client selected");
-            specificController = new BackupControllerSQLITE(this, this.backupSettings, this.services, this.database, this.schema, this.log);
+            await this.logger.log("SQLITE3 DB Client selected");
+            specificController = new BackupControllerSQLITE(this, this.backupSettings, this.services, this.database, this.schema, await this.logger);
             await specificController.init();
         }
 
         if(!!specificController){
+            let dateBackupCreated = new Date();
             let tempBackupFilePath = await specificController.createBackup(tempFolderPath); // create backup file
             if(tempBackupFilePath){ // if backup file was created
-                console.log("Backup created and temporarily stored at: "+tempBackupFilePath);
-                log = await this.log(log, "Backup created and temporarily stored at: "+tempBackupFilePath);
+                await this.logger.log("Backup created and temporarily stored at: "+tempBackupFilePath);
                 // move backup file to backup folder
-                log = await this.moveBackupFileToBackupFolder(tempBackupFilePath, now, log);
+                await this.moveBackupFileToFinalBackupFolder(tempBackupFilePath, dateBackupCreated);
 
                 console.log("Moved backup file to backup folder finished");
-                log = await this.log(log, "Moved backup file to backup folder finished");
+                await this.logger.log("Moved backup file to backup folder finished");
             } else { // if backup file was not created
                 console.log("Backup failed, since no backup file was created");
-                log = await this.log(log, "Backup failed, since no backup file was created");
+                await this.logger.log("Backup failed, since no backup file was created");
             }
         } else {
             console.log("No specific controller found for db client: "+dbClient);
-            log = await this.log(log, "No specific controller found for db client: "+dbClient);
+            await this.logger.log("No specific controller found for db client: "+dbClient);
         }
     }
 
@@ -247,11 +248,11 @@ module.exports = class BackupController {
         if(active){
             let state = await this.backupSettings.getState();
 
-            let statusCheck = "check";
+            let statusCreate = "create";
             let statusFinished = "finished";
             let statusRunning = "running";
             let statusFailed = "failed";
-            if(state===statusCheck && this.finished){
+            if(state===statusCreate && this.finished){
                 this.finished = false;
                 await this.backupSettings.setCurrentState(statusRunning);
                 try{

@@ -56,7 +56,14 @@ In order to support more databases, we need help. If you know how to make a back
         ...
         ```
         
-3. Follow the instructions in your Directus App add the new created table (`auto_backup_settings`)
+3. Restart the server twice
+   1. First time maybe your database is not ready yet
+   2. Second time the extension should be installed
+4. Go to the extensions page and setup the extension 
+   - A new table called `auto_backup_settings` should be created
+   - visit `http://0.0.0.0:8055/admin/content/auto_backup_settings`
+
+   <img src="https://raw.githubusercontent.com/FireboltCasters/directus-extension-auto-backup/master/assets/autoBackupExample.png" alt="example" style="height:150px;"/>
 
 
 ## Contributors

@@ -24,22 +24,22 @@ collections:
     schema:
       name: auto_backup_settings
       sql: >-
-        CREATE TABLE "auto_backup_settings" (`id` integer PRIMARY KEY
-        AUTOINCREMENT NOT NULL, `user_created` char(36) NULL, `date_created`
-        datetime NULL, `user_updated` char(36) NULL, `date_updated` datetime
-        NULL, `DB_CLIENT` varchar(255) NULL, `state` varchar(255) NULL DEFAULT
-        'finished', `active` boolean NULL DEFAULT '0', `latest_log` text NULL,
+        CREATE TABLE "auto_backup_settings" (`DB_CLIENT` varchar(255) NULL
+        DEFAULT null, `active` boolean NULL DEFAULT '0', `backup_file_format`
+        varchar(255) NULL DEFAULT 'yyyy-MM-dd-HH-mm-SS-SSS',
+        `backup_location_custom_path` char(36) NULL DEFAULT
+        '/directus/database/backups', `backup_location_folder_id` char(36) NULL
+        DEFAULT null, `backup_location_folder_name` char(36) NULL DEFAULT
+        'backups', `backup_location_type` varchar(255) NULL DEFAULT
+        'file_library', `date_created` datetime NULL DEFAULT null,
+        `date_updated` datetime NULL DEFAULT null, `id` integer PRIMARY KEY
+        AUTOINCREMENT NOT NULL, `latest_log` text NULL DEFAULT null,
         `sqlite3_db_filename` varchar(255) NULL DEFAULT
-        '/directus/database/data.db', `backup_location_type` varchar(255) NULL
-        DEFAULT 'file_library', `backup_location_folder_name` char(36) NULL
-        DEFAULT 'backups', `backup_location_folder_id` char(36) NULL DEFAULT
-        null, `backup_file_format` varchar(255) NULL DEFAULT
-        'YYYY-MM-DD-HH-mm-ss-SSS', `backup_location_custom_path` char(36) NULL
-        DEFAULT '/directus/database/backups', CONSTRAINT
-        `auto_backup_settings_user_created_foreign` FOREIGN KEY (`user_created`)
-        REFERENCES `directus_users` (`id`), CONSTRAINT
-        `auto_backup_settings_user_updated_foreign` FOREIGN KEY (`user_updated`)
-        REFERENCES `directus_users` (`id`))
+        '/directus/database/data.db', `state` varchar(255) NULL DEFAULT
+        'finished', `user_created` varchar(36) NULL DEFAULT null, `user_updated`
+        varchar(36) NULL DEFAULT null, `backup_file_format_prefix` varchar(255)
+        NULL DEFAULT 'backup-', `backup_file_format_postfix` varchar(255) NULL
+        DEFAULT null)
 fields:
   - collection: auto_backup_settings
     field: DB_CLIENT
@@ -60,7 +60,7 @@ fields:
             value: sqlite3
       readonly: false
       required: false
-      sort: 7
+      sort: 9
       special: null
       translations: null
       validation: null
@@ -134,12 +134,13 @@ fields:
       hidden: false
       interface: input
       note: >-
-        The default timestamp format will be: YYYY-MM-DD-HH-mm-ss-SSS e. G.
-        2022-09-28-13-45-58-1234. Customize by using moment.js formats.
-      options: null
+        The default timestamp format will be: YYYY-MM-DD-HH-mm-ss-SSS. Customize
+        by using date-fns https://date-fns.org/v2.29.3/docs/format
+      options:
+        clear: true
       readonly: false
       required: false
-      sort: 1
+      sort: 6
       special: null
       translations: null
       validation: null
@@ -147,7 +148,7 @@ fields:
       width: full
     schema:
       data_type: varchar
-      default_value: YYYY-MM-DD-HH-mm-ss-SSS
+      default_value: yyyy-MM-dd-HH-mm-SS-SSS
       foreign_key_column: null
       foreign_key_table: null
       generation_expression: null
@@ -163,6 +164,84 @@ fields:
       table: auto_backup_settings
     type: string
   - collection: auto_backup_settings
+    field: backup_file_format_postfix
+    meta:
+      collection: auto_backup_settings
+      conditions: null
+      display: null
+      display_options: null
+      field: backup_file_format_postfix
+      group: driver_specific_settings
+      hidden: false
+      interface: input
+      note: A postfix for the filename of the backup.
+      options:
+        clear: true
+      readonly: false
+      required: false
+      sort: 5
+      special: null
+      translations: null
+      validation: null
+      validation_message: null
+      width: half
+    schema:
+      data_type: varchar
+      default_value: null
+      foreign_key_column: null
+      foreign_key_table: null
+      generation_expression: null
+      has_auto_increment: false
+      is_generated: false
+      is_nullable: true
+      is_primary_key: false
+      is_unique: false
+      max_length: 255
+      name: backup_file_format_postfix
+      numeric_precision: null
+      numeric_scale: null
+      table: auto_backup_settings
+    type: string
+  - collection: auto_backup_settings
+    field: backup_file_format_prefix
+    meta:
+      collection: auto_backup_settings
+      conditions: null
+      display: null
+      display_options: null
+      field: backup_file_format_prefix
+      group: driver_specific_settings
+      hidden: false
+      interface: input
+      note: A prefix for the filename of the backup.
+      options:
+        clear: true
+      readonly: false
+      required: false
+      sort: 4
+      special: null
+      translations: null
+      validation: null
+      validation_message: null
+      width: half
+    schema:
+      data_type: varchar
+      default_value: backup-
+      foreign_key_column: null
+      foreign_key_table: null
+      generation_expression: null
+      has_auto_increment: false
+      is_generated: false
+      is_nullable: true
+      is_primary_key: false
+      is_unique: false
+      max_length: 255
+      name: backup_file_format_prefix
+      numeric_precision: null
+      numeric_scale: null
+      table: auto_backup_settings
+    type: string
+  - collection: auto_backup_settings
     field: backup_location_custom_path
     meta:
       collection: auto_backup_settings
@@ -173,7 +252,7 @@ fields:
       group: backup_location_type_custom
       hidden: false
       interface: input
-      note: 'Folder name (default: /directus/database/backups)'
+      note: 'Absolute filepath (default: /directus/database/backups)'
       options: null
       readonly: false
       required: false
@@ -212,11 +291,11 @@ fields:
       group: backup_location_type_file_library
       hidden: false
       interface: input
-      note: 'Optional: ID of the folder'
+      note: 'Optional: ID of the folder (otherwise we will create it)'
       options: null
       readonly: false
       required: false
-      sort: 3
+      sort: 1
       special:
         - file
       translations: null
@@ -251,11 +330,11 @@ fields:
       group: backup_location_type_file_library
       hidden: false
       interface: input
-      note: 'Backup folder name (default: backups)'
+      note: 'ReadOnly: Backup folder name'
       options: null
-      readonly: false
+      readonly: true
       required: false
-      sort: 1
+      sort: 2
       special:
         - file
       translations: null
@@ -300,7 +379,7 @@ fields:
             value: custom_path
       readonly: false
       required: false
-      sort: 3
+      sort: 4
       special: null
       translations: null
       validation: null
@@ -345,7 +424,7 @@ fields:
       options: null
       readonly: false
       required: false
-      sort: 4
+      sort: 5
       special:
         - alias
         - group
@@ -378,7 +457,7 @@ fields:
       options: null
       readonly: false
       required: false
-      sort: 5
+      sort: 6
       special:
         - alias
         - group
@@ -488,7 +567,7 @@ fields:
         title: Database driver
       readonly: false
       required: false
-      sort: 6
+      sort: 7
       special:
         - alias
         - no-data
@@ -538,7 +617,7 @@ fields:
       options: null
       readonly: false
       required: false
-      sort: 9
+      sort: 11
       special:
         - alias
         - no-data
@@ -597,7 +676,7 @@ fields:
       options: null
       readonly: false
       required: false
-      sort: 8
+      sort: 10
       special:
         - alias
         - group
@@ -617,7 +696,7 @@ fields:
           rule:
             _and:
               - active:
-                  _eq: false
+                  _neq: true
           options:
             start: open
       display: null
@@ -734,7 +813,89 @@ fields:
         text: After this setup, you only need to active the next field ACTIVE
       readonly: false
       required: false
-      sort: 10
+      sort: 12
+      special:
+        - alias
+        - no-data
+      translations: null
+      validation: null
+      validation_message: null
+      width: full
+    schema: null
+    type: alias
+  - collection: auto_backup_settings
+    field: notice_please_configure_db_client
+    meta:
+      collection: auto_backup_settings
+      conditions: null
+      display: null
+      display_options: null
+      field: notice_please_configure_db_client
+      group: general_settings
+      hidden: false
+      interface: presentation-notice
+      note: null
+      options:
+        text: Please tell us which database client you are using.
+      readonly: false
+      required: false
+      sort: 8
+      special:
+        - alias
+        - no-data
+      translations: null
+      validation: null
+      validation_message: null
+      width: full
+    schema: null
+    type: alias
+  - collection: auto_backup_settings
+    field: notice_please_configure_save_location
+    meta:
+      collection: auto_backup_settings
+      conditions: null
+      display: null
+      display_options: null
+      field: notice_please_configure_save_location
+      group: general_settings
+      hidden: false
+      interface: presentation-notice
+      note: null
+      options:
+        text: >-
+          Please configure where your backup should be saved. You can either
+          save it in the directus FileLibrary or define a custom path.
+      readonly: false
+      required: false
+      sort: 3
+      special:
+        - alias
+        - no-data
+      translations: null
+      validation: null
+      validation_message: null
+      width: full
+    schema: null
+    type: alias
+  - collection: auto_backup_settings
+    field: notice_please_setup_name_for_backupfile
+    meta:
+      collection: auto_backup_settings
+      conditions: null
+      display: null
+      display_options: null
+      field: notice_please_setup_name_for_backupfile
+      group: driver_specific_settings
+      hidden: false
+      interface: presentation-notice
+      note: null
+      options:
+        text: >-
+          You can define the name of the backup file here. The name consist of
+          the prefix, timestamp and postfix.
+      readonly: false
+      required: false
+      sort: 1
       special:
         - alias
         - no-data
@@ -836,7 +997,7 @@ fields:
       options: null
       readonly: false
       required: false
-      sort: 2
+      sort: 7
       special:
         - alias
         - group
@@ -863,8 +1024,8 @@ fields:
         the field 'state' to the value 'check'
       options:
         choices:
-          - text: check <-- manual start
-            value: check
+          - text: create <-- manual start
+            value: create
           - text: running
             value: running
           - text: finished
@@ -920,10 +1081,10 @@ fields:
       validation_message: null
       width: half
     schema:
-      data_type: char
+      data_type: varchar
       default_value: null
-      foreign_key_column: id
-      foreign_key_table: directus_users
+      foreign_key_column: null
+      foreign_key_table: null
       generation_expression: null
       has_auto_increment: false
       is_generated: false
@@ -960,10 +1121,10 @@ fields:
       validation_message: null
       width: half
     schema:
-      data_type: char
+      data_type: varchar
       default_value: null
-      foreign_key_column: id
-      foreign_key_table: directus_users
+      foreign_key_column: null
+      foreign_key_table: null
       generation_expression: null
       has_auto_increment: false
       is_generated: false
@@ -1008,46 +1169,4 @@ fields:
       width: full
     schema: null
     type: alias
-relations:
-  - collection: auto_backup_settings
-    field: user_created
-    meta:
-      junction_field: null
-      many_collection: auto_backup_settings
-      many_field: user_created
-      one_allowed_collections: null
-      one_collection: directus_users
-      one_collection_field: null
-      one_deselect_action: nullify
-      one_field: null
-      sort_field: null
-    related_collection: directus_users
-    schema:
-      column: user_created
-      constraint_name: null
-      foreign_key_column: id
-      foreign_key_table: directus_users
-      on_delete: NO ACTION
-      on_update: NO ACTION
-      table: auto_backup_settings
-  - collection: auto_backup_settings
-    field: user_updated
-    meta:
-      junction_field: null
-      many_collection: auto_backup_settings
-      many_field: user_updated
-      one_allowed_collections: null
-      one_collection: directus_users
-      one_collection_field: null
-      one_deselect_action: nullify
-      one_field: null
-      sort_field: null
-    related_collection: directus_users
-    schema:
-      column: user_updated
-      constraint_name: null
-      foreign_key_column: id
-      foreign_key_table: directus_users
-      on_delete: NO ACTION
-      on_update: NO ACTION
-      table: auto_backup_settings
+relations: []

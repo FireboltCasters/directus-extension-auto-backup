@@ -25,22 +25,22 @@ module.exports = function () {
       '    schema:\n' +
       '      name: auto_backup_settings\n' +
       '      sql: >-\n' +
-      '        CREATE TABLE "auto_backup_settings" (`id` integer PRIMARY KEY\n' +
-      '        AUTOINCREMENT NOT NULL, `user_created` char(36) NULL, `date_created`\n' +
-      '        datetime NULL, `user_updated` char(36) NULL, `date_updated` datetime\n' +
-      '        NULL, `DB_CLIENT` varchar(255) NULL, `state` varchar(255) NULL DEFAULT\n' +
-      '        \'finished\', `active` boolean NULL DEFAULT \'0\', `latest_log` text NULL,\n' +
+      '        CREATE TABLE "auto_backup_settings" (`DB_CLIENT` varchar(255) NULL\n' +
+      '        DEFAULT null, `active` boolean NULL DEFAULT \'0\', `backup_file_format`\n' +
+      '        varchar(255) NULL DEFAULT \'yyyy-MM-dd-HH-mm-SS-SSS\',\n' +
+      '        `backup_location_custom_path` char(36) NULL DEFAULT\n' +
+      '        \'/directus/database/backups\', `backup_location_folder_id` char(36) NULL\n' +
+      '        DEFAULT null, `backup_location_folder_name` char(36) NULL DEFAULT\n' +
+      '        \'backups\', `backup_location_type` varchar(255) NULL DEFAULT\n' +
+      '        \'file_library\', `date_created` datetime NULL DEFAULT null,\n' +
+      '        `date_updated` datetime NULL DEFAULT null, `id` integer PRIMARY KEY\n' +
+      '        AUTOINCREMENT NOT NULL, `latest_log` text NULL DEFAULT null,\n' +
       '        `sqlite3_db_filename` varchar(255) NULL DEFAULT\n' +
-      '        \'/directus/database/data.db\', `backup_location_type` varchar(255) NULL\n' +
-      '        DEFAULT \'file_library\', `backup_location_folder_name` char(36) NULL\n' +
-      '        DEFAULT \'backups\', `backup_location_folder_id` char(36) NULL DEFAULT\n' +
-      '        null, `backup_file_format` varchar(255) NULL DEFAULT\n' +
-      '        \'YYYY-MM-DD-HH-mm-ss-SSS\', `backup_location_custom_path` char(36) NULL\n' +
-      '        DEFAULT \'/directus/database/backups\', CONSTRAINT\n' +
-      '        `auto_backup_settings_user_created_foreign` FOREIGN KEY (`user_created`)\n' +
-      '        REFERENCES `directus_users` (`id`), CONSTRAINT\n' +
-      '        `auto_backup_settings_user_updated_foreign` FOREIGN KEY (`user_updated`)\n' +
-      '        REFERENCES `directus_users` (`id`))\n' +
+      '        \'/directus/database/data.db\', `state` varchar(255) NULL DEFAULT\n' +
+      '        \'finished\', `user_created` varchar(36) NULL DEFAULT null, `user_updated`\n' +
+      '        varchar(36) NULL DEFAULT null, `backup_file_format_prefix` varchar(255)\n' +
+      '        NULL DEFAULT \'backup-\', `backup_file_format_postfix` varchar(255) NULL\n' +
+      '        DEFAULT null)\n' +
       'fields:\n' +
       '  - collection: auto_backup_settings\n' +
       '    field: DB_CLIENT\n' +
@@ -61,7 +61,7 @@ module.exports = function () {
       '            value: sqlite3\n' +
       '      readonly: false\n' +
       '      required: false\n' +
-      '      sort: 7\n' +
+      '      sort: 9\n' +
       '      special: null\n' +
       '      translations: null\n' +
       '      validation: null\n' +
@@ -135,12 +135,13 @@ module.exports = function () {
       '      hidden: false\n' +
       '      interface: input\n' +
       '      note: >-\n' +
-      '        The default timestamp format will be: YYYY-MM-DD-HH-mm-ss-SSS e. G.\n' +
-      '        2022-09-28-13-45-58-1234. Customize by using moment.js formats.\n' +
-      '      options: null\n' +
+      '        The default timestamp format will be: YYYY-MM-DD-HH-mm-ss-SSS. Customize\n' +
+      '        by using date-fns https://date-fns.org/v2.29.3/docs/format\n' +
+      '      options:\n' +
+      '        clear: true\n' +
       '      readonly: false\n' +
       '      required: false\n' +
-      '      sort: 1\n' +
+      '      sort: 6\n' +
       '      special: null\n' +
       '      translations: null\n' +
       '      validation: null\n' +
@@ -148,7 +149,7 @@ module.exports = function () {
       '      width: full\n' +
       '    schema:\n' +
       '      data_type: varchar\n' +
-      '      default_value: YYYY-MM-DD-HH-mm-ss-SSS\n' +
+      '      default_value: yyyy-MM-dd-HH-mm-SS-SSS\n' +
       '      foreign_key_column: null\n' +
       '      foreign_key_table: null\n' +
       '      generation_expression: null\n' +
@@ -164,6 +165,84 @@ module.exports = function () {
       '      table: auto_backup_settings\n' +
       '    type: string\n' +
       '  - collection: auto_backup_settings\n' +
+      '    field: backup_file_format_postfix\n' +
+      '    meta:\n' +
+      '      collection: auto_backup_settings\n' +
+      '      conditions: null\n' +
+      '      display: null\n' +
+      '      display_options: null\n' +
+      '      field: backup_file_format_postfix\n' +
+      '      group: driver_specific_settings\n' +
+      '      hidden: false\n' +
+      '      interface: input\n' +
+      '      note: A postfix for the filename of the backup.\n' +
+      '      options:\n' +
+      '        clear: true\n' +
+      '      readonly: false\n' +
+      '      required: false\n' +
+      '      sort: 5\n' +
+      '      special: null\n' +
+      '      translations: null\n' +
+      '      validation: null\n' +
+      '      validation_message: null\n' +
+      '      width: half\n' +
+      '    schema:\n' +
+      '      data_type: varchar\n' +
+      '      default_value: null\n' +
+      '      foreign_key_column: null\n' +
+      '      foreign_key_table: null\n' +
+      '      generation_expression: null\n' +
+      '      has_auto_increment: false\n' +
+      '      is_generated: false\n' +
+      '      is_nullable: true\n' +
+      '      is_primary_key: false\n' +
+      '      is_unique: false\n' +
+      '      max_length: 255\n' +
+      '      name: backup_file_format_postfix\n' +
+      '      numeric_precision: null\n' +
+      '      numeric_scale: null\n' +
+      '      table: auto_backup_settings\n' +
+      '    type: string\n' +
+      '  - collection: auto_backup_settings\n' +
+      '    field: backup_file_format_prefix\n' +
+      '    meta:\n' +
+      '      collection: auto_backup_settings\n' +
+      '      conditions: null\n' +
+      '      display: null\n' +
+      '      display_options: null\n' +
+      '      field: backup_file_format_prefix\n' +
+      '      group: driver_specific_settings\n' +
+      '      hidden: false\n' +
+      '      interface: input\n' +
+      '      note: A prefix for the filename of the backup.\n' +
+      '      options:\n' +
+      '        clear: true\n' +
+      '      readonly: false\n' +
+      '      required: false\n' +
+      '      sort: 4\n' +
+      '      special: null\n' +
+      '      translations: null\n' +
+      '      validation: null\n' +
+      '      validation_message: null\n' +
+      '      width: half\n' +
+      '    schema:\n' +
+      '      data_type: varchar\n' +
+      '      default_value: backup-\n' +
+      '      foreign_key_column: null\n' +
+      '      foreign_key_table: null\n' +
+      '      generation_expression: null\n' +
+      '      has_auto_increment: false\n' +
+      '      is_generated: false\n' +
+      '      is_nullable: true\n' +
+      '      is_primary_key: false\n' +
+      '      is_unique: false\n' +
+      '      max_length: 255\n' +
+      '      name: backup_file_format_prefix\n' +
+      '      numeric_precision: null\n' +
+      '      numeric_scale: null\n' +
+      '      table: auto_backup_settings\n' +
+      '    type: string\n' +
+      '  - collection: auto_backup_settings\n' +
       '    field: backup_location_custom_path\n' +
       '    meta:\n' +
       '      collection: auto_backup_settings\n' +
@@ -174,7 +253,7 @@ module.exports = function () {
       '      group: backup_location_type_custom\n' +
       '      hidden: false\n' +
       '      interface: input\n' +
-      '      note: \'Folder name (default: /directus/database/backups)\'\n' +
+      '      note: \'Absolute filepath (default: /directus/database/backups)\'\n' +
       '      options: null\n' +
       '      readonly: false\n' +
       '      required: false\n' +
@@ -213,11 +292,11 @@ module.exports = function () {
       '      group: backup_location_type_file_library\n' +
       '      hidden: false\n' +
       '      interface: input\n' +
-      '      note: \'Optional: ID of the folder\'\n' +
+      '      note: \'Optional: ID of the folder (otherwise we will create it)\'\n' +
       '      options: null\n' +
       '      readonly: false\n' +
       '      required: false\n' +
-      '      sort: 3\n' +
+      '      sort: 1\n' +
       '      special:\n' +
       '        - file\n' +
       '      translations: null\n' +
@@ -252,11 +331,11 @@ module.exports = function () {
       '      group: backup_location_type_file_library\n' +
       '      hidden: false\n' +
       '      interface: input\n' +
-      '      note: \'Backup folder name (default: backups)\'\n' +
+      '      note: \'ReadOnly: Backup folder name\'\n' +
       '      options: null\n' +
-      '      readonly: false\n' +
+      '      readonly: true\n' +
       '      required: false\n' +
-      '      sort: 1\n' +
+      '      sort: 2\n' +
       '      special:\n' +
       '        - file\n' +
       '      translations: null\n' +
@@ -301,7 +380,7 @@ module.exports = function () {
       '            value: custom_path\n' +
       '      readonly: false\n' +
       '      required: false\n' +
-      '      sort: 3\n' +
+      '      sort: 4\n' +
       '      special: null\n' +
       '      translations: null\n' +
       '      validation: null\n' +
@@ -346,7 +425,7 @@ module.exports = function () {
       '      options: null\n' +
       '      readonly: false\n' +
       '      required: false\n' +
-      '      sort: 4\n' +
+      '      sort: 5\n' +
       '      special:\n' +
       '        - alias\n' +
       '        - group\n' +
@@ -379,7 +458,7 @@ module.exports = function () {
       '      options: null\n' +
       '      readonly: false\n' +
       '      required: false\n' +
-      '      sort: 5\n' +
+      '      sort: 6\n' +
       '      special:\n' +
       '        - alias\n' +
       '        - group\n' +
@@ -489,7 +568,7 @@ module.exports = function () {
       '        title: Database driver\n' +
       '      readonly: false\n' +
       '      required: false\n' +
-      '      sort: 6\n' +
+      '      sort: 7\n' +
       '      special:\n' +
       '        - alias\n' +
       '        - no-data\n' +
@@ -539,7 +618,7 @@ module.exports = function () {
       '      options: null\n' +
       '      readonly: false\n' +
       '      required: false\n' +
-      '      sort: 9\n' +
+      '      sort: 11\n' +
       '      special:\n' +
       '        - alias\n' +
       '        - no-data\n' +
@@ -598,7 +677,7 @@ module.exports = function () {
       '      options: null\n' +
       '      readonly: false\n' +
       '      required: false\n' +
-      '      sort: 8\n' +
+      '      sort: 10\n' +
       '      special:\n' +
       '        - alias\n' +
       '        - group\n' +
@@ -618,7 +697,7 @@ module.exports = function () {
       '          rule:\n' +
       '            _and:\n' +
       '              - active:\n' +
-      '                  _eq: false\n' +
+      '                  _neq: true\n' +
       '          options:\n' +
       '            start: open\n' +
       '      display: null\n' +
@@ -735,7 +814,89 @@ module.exports = function () {
       '        text: After this setup, you only need to active the next field ACTIVE\n' +
       '      readonly: false\n' +
       '      required: false\n' +
-      '      sort: 10\n' +
+      '      sort: 12\n' +
+      '      special:\n' +
+      '        - alias\n' +
+      '        - no-data\n' +
+      '      translations: null\n' +
+      '      validation: null\n' +
+      '      validation_message: null\n' +
+      '      width: full\n' +
+      '    schema: null\n' +
+      '    type: alias\n' +
+      '  - collection: auto_backup_settings\n' +
+      '    field: notice_please_configure_db_client\n' +
+      '    meta:\n' +
+      '      collection: auto_backup_settings\n' +
+      '      conditions: null\n' +
+      '      display: null\n' +
+      '      display_options: null\n' +
+      '      field: notice_please_configure_db_client\n' +
+      '      group: general_settings\n' +
+      '      hidden: false\n' +
+      '      interface: presentation-notice\n' +
+      '      note: null\n' +
+      '      options:\n' +
+      '        text: Please tell us which database client you are using.\n' +
+      '      readonly: false\n' +
+      '      required: false\n' +
+      '      sort: 8\n' +
+      '      special:\n' +
+      '        - alias\n' +
+      '        - no-data\n' +
+      '      translations: null\n' +
+      '      validation: null\n' +
+      '      validation_message: null\n' +
+      '      width: full\n' +
+      '    schema: null\n' +
+      '    type: alias\n' +
+      '  - collection: auto_backup_settings\n' +
+      '    field: notice_please_configure_save_location\n' +
+      '    meta:\n' +
+      '      collection: auto_backup_settings\n' +
+      '      conditions: null\n' +
+      '      display: null\n' +
+      '      display_options: null\n' +
+      '      field: notice_please_configure_save_location\n' +
+      '      group: general_settings\n' +
+      '      hidden: false\n' +
+      '      interface: presentation-notice\n' +
+      '      note: null\n' +
+      '      options:\n' +
+      '        text: >-\n' +
+      '          Please configure where your backup should be saved. You can either\n' +
+      '          save it in the directus FileLibrary or define a custom path.\n' +
+      '      readonly: false\n' +
+      '      required: false\n' +
+      '      sort: 3\n' +
+      '      special:\n' +
+      '        - alias\n' +
+      '        - no-data\n' +
+      '      translations: null\n' +
+      '      validation: null\n' +
+      '      validation_message: null\n' +
+      '      width: full\n' +
+      '    schema: null\n' +
+      '    type: alias\n' +
+      '  - collection: auto_backup_settings\n' +
+      '    field: notice_please_setup_name_for_backupfile\n' +
+      '    meta:\n' +
+      '      collection: auto_backup_settings\n' +
+      '      conditions: null\n' +
+      '      display: null\n' +
+      '      display_options: null\n' +
+      '      field: notice_please_setup_name_for_backupfile\n' +
+      '      group: driver_specific_settings\n' +
+      '      hidden: false\n' +
+      '      interface: presentation-notice\n' +
+      '      note: null\n' +
+      '      options:\n' +
+      '        text: >-\n' +
+      '          You can define the name of the backup file here. The name consist of\n' +
+      '          the prefix, timestamp and postfix.\n' +
+      '      readonly: false\n' +
+      '      required: false\n' +
+      '      sort: 1\n' +
       '      special:\n' +
       '        - alias\n' +
       '        - no-data\n' +
@@ -837,7 +998,7 @@ module.exports = function () {
       '      options: null\n' +
       '      readonly: false\n' +
       '      required: false\n' +
-      '      sort: 2\n' +
+      '      sort: 7\n' +
       '      special:\n' +
       '        - alias\n' +
       '        - group\n' +
@@ -864,8 +1025,8 @@ module.exports = function () {
       '        the field \'state\' to the value \'check\'\n' +
       '      options:\n' +
       '        choices:\n' +
-      '          - text: check <-- manual start\n' +
-      '            value: check\n' +
+      '          - text: create <-- manual start\n' +
+      '            value: create\n' +
       '          - text: running\n' +
       '            value: running\n' +
       '          - text: finished\n' +
@@ -921,10 +1082,10 @@ module.exports = function () {
       '      validation_message: null\n' +
       '      width: half\n' +
       '    schema:\n' +
-      '      data_type: char\n' +
+      '      data_type: varchar\n' +
       '      default_value: null\n' +
-      '      foreign_key_column: id\n' +
-      '      foreign_key_table: directus_users\n' +
+      '      foreign_key_column: null\n' +
+      '      foreign_key_table: null\n' +
       '      generation_expression: null\n' +
       '      has_auto_increment: false\n' +
       '      is_generated: false\n' +
@@ -961,10 +1122,10 @@ module.exports = function () {
       '      validation_message: null\n' +
       '      width: half\n' +
       '    schema:\n' +
-      '      data_type: char\n' +
+      '      data_type: varchar\n' +
       '      default_value: null\n' +
-      '      foreign_key_column: id\n' +
-      '      foreign_key_table: directus_users\n' +
+      '      foreign_key_column: null\n' +
+      '      foreign_key_table: null\n' +
       '      generation_expression: null\n' +
       '      has_auto_increment: false\n' +
       '      is_generated: false\n' +
@@ -1009,47 +1170,5 @@ module.exports = function () {
       '      width: full\n' +
       '    schema: null\n' +
       '    type: alias\n' +
-      'relations:\n' +
-      '  - collection: auto_backup_settings\n' +
-      '    field: user_created\n' +
-      '    meta:\n' +
-      '      junction_field: null\n' +
-      '      many_collection: auto_backup_settings\n' +
-      '      many_field: user_created\n' +
-      '      one_allowed_collections: null\n' +
-      '      one_collection: directus_users\n' +
-      '      one_collection_field: null\n' +
-      '      one_deselect_action: nullify\n' +
-      '      one_field: null\n' +
-      '      sort_field: null\n' +
-      '    related_collection: directus_users\n' +
-      '    schema:\n' +
-      '      column: user_created\n' +
-      '      constraint_name: null\n' +
-      '      foreign_key_column: id\n' +
-      '      foreign_key_table: directus_users\n' +
-      '      on_delete: NO ACTION\n' +
-      '      on_update: NO ACTION\n' +
-      '      table: auto_backup_settings\n' +
-      '  - collection: auto_backup_settings\n' +
-      '    field: user_updated\n' +
-      '    meta:\n' +
-      '      junction_field: null\n' +
-      '      many_collection: auto_backup_settings\n' +
-      '      many_field: user_updated\n' +
-      '      one_allowed_collections: null\n' +
-      '      one_collection: directus_users\n' +
-      '      one_collection_field: null\n' +
-      '      one_deselect_action: nullify\n' +
-      '      one_field: null\n' +
-      '      sort_field: null\n' +
-      '    related_collection: directus_users\n' +
-      '    schema:\n' +
-      '      column: user_updated\n' +
-      '      constraint_name: null\n' +
-      '      foreign_key_column: id\n' +
-      '      foreign_key_table: directus_users\n' +
-      '      on_delete: NO ACTION\n' +
-      '      on_update: NO ACTION\n' +
-      '      table: auto_backup_settings\n'
+      'relations: []\n'
 };
