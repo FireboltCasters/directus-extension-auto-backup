@@ -113,7 +113,7 @@ module.exports = class BackupController {
             }
         } else {
             await this.logger.log("Folder id set: "+folderId+" - check if folder exists");
-            const folder_instance = await folderService.readOne(folderId);
+            const folder_instance = await this.foldersService.readOne(folderId);
             if(!folder_instance){
                 await this.logger.log("Folder instance not found: "+folderId+" - create folder");
                 return await this.createOrGetFileLibraryFolder(folderName, null);
