@@ -60,11 +60,22 @@ In order to support more databases, we need help. If you know how to make a back
    1. First time maybe your database is not ready yet
    2. Second time the extension should be installed
 4. Go to the extensions page and setup the extension 
-   - A new table called `auto_backup_settings` should be created
+   - A new table called `Auto Backup Settings` should be created
    - visit `http://0.0.0.0:8055/admin/content/auto_backup_settings`
 
    <img src="https://raw.githubusercontent.com/FireboltCasters/directus-extension-auto-backup/master/assets/autoBackupExample.png" alt="example" style="height:150px;"/>
 
+
+### Development
+
+- Before uploading to git, run `npm run build` to build the extension
+    - Since the weird error `RangeError: Maximum call stack size exceeded` of the package `rollup`, we currently can't auto build the extension on git push
+
+#### Troubleshooting
+
+- Building the plugin with `npm run build`
+    - Error occurs: `RangeError: Maximum call stack size exceeded`
+        - Just run the command again, it should work the second time
 
 ## Contributors
 
