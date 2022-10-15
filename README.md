@@ -23,6 +23,9 @@
 
 This extension automatically makes backups of your database for you.
 
+- Automatically backups
+- Manually backups 
+
 Supported databases:
 - SQLite
 
