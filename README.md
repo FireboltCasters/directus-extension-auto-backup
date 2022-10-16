@@ -23,8 +23,10 @@
 
 This extension automatically makes backups of your database for you.
 
-- Automatically backups
+- Automatically backups (with directus flows)
 - Manually backups 
+- Save Location (Custom path or in Directus_Files)
+- Custom file name for backup files
 
 Supported databases:
 - SQLite
@@ -67,6 +69,38 @@ In order to support more databases, we need help. If you know how to make a back
    - visit `http://0.0.0.0:8055/admin/content/auto_backup_settings`
 
    <img src="https://raw.githubusercontent.com/FireboltCasters/directus-extension-auto-backup/master/assets/autoBackupExample.png" alt="example" style="height:150px;"/>
+
+
+## Manual Backup
+
+- Go to collection "Auto Backup Settings"
+- Ensure you configured everything
+- Select state --> select "create"
+
+
+### Automatic Backups
+
+We will use directus flows to create automatic backups.
+
+1. Create a new directus flow
+2. Trigger Setup --> Configure as Schedule (CRON)
+3. Create a operation --> Update Data
+    - Collection: Auto Backup Settings
+    - Permission: Full Access
+    - Emit Events: true
+    - Payload : ```
+            {
+            "state": "create",
+            "latest_log": ""
+            }   
+                ```
+    - Query : ```
+           {
+            "filter": {
+                    "_and": []
+                }
+            }  
+                ```
 
 
 ### Development
