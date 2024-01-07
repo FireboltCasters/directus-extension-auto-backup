@@ -148,6 +148,7 @@ module.exports = class BackupController {
                 filename_download: backupFilenameWithExtension,
                 filesize: fs.statSync(tempBackupFilePath).size,
                 folder: folderId,
+                type: "application/octet-stream",
                 storage: this.getFileLibraryStorageLocation()
             };
 
