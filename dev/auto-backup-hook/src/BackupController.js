@@ -62,7 +62,7 @@ module.exports = class BackupController {
     // apply snapshot https://github.com/directus/directus/blob/3761abf1f05941d88c5d284414227d353bfe7ebe/api/src/utils/apply-snapshot.ts
 
     async getDirectusRootFolderPath(){
-        let relaticePath = path.join(__dirname, "./../../../../");
+        let relaticePath = path.join("/");
         let absolutePath = path.resolve(relaticePath);
         return absolutePath;
     }
