@@ -1,4 +1,4 @@
-module.exports = class BackupLogger {
+export class BackupLogger {
 
     constructor(backupSettings) {
         this.backupSettings = backupSettings;

@@ -1,11 +1,11 @@
-const ItemsServiceCreator = require("./helper/ItemsServiceCreator");
+import {ItemsServiceCreator} from "./helper/ItemsServiceCreator";
 
 const default_sqlite3_DB_FILENAME = "/directus/database/data.db";
 const default_field_name_backup_folder_value = "/directus/database/backups";
 const default_sqlite3_backup_file_format = "YYYY-MM-DD-HH-mm-ss-SSS";
 
 
-module.exports = class BackupSettings {
+export class BackupSettings {
 
     static TABLENAME = "auto_backup_settings";
 

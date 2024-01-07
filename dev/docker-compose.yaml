@@ -3,7 +3,7 @@ services:
 
   directus:
     container_name: directus-auto-backup
-    image: directus/directus:9.16.1
+    image: directus/directus:10.8.3
     ports:
       - 8055:8055
     volumes:
@@ -16,7 +16,7 @@ services:
       # If you want to load extensions from builded files
       #- ./auto-backup-hook/dist/index.js:/directus/extensions/hooks/auto-backup-hook/index.js
       # Hotreload dev
-      - ./auto-backup-hook/src:/directus/extensions/hooks/auto-backup-hook
+      - ./extensions:/directus/extensions/
     networks:
       - directus
     environment:

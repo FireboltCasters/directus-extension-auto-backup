@@ -1,5 +1,5 @@
 // https://github.com/directus/directus/blob/main/api/src/services/items.ts
-module.exports = class ItemsServiceCreator {
+export class ItemsServiceCreator {
 
     constructor(services, database, schema) {
         this.services = services;

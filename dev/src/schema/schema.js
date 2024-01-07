@@ -1,4 +1,4 @@
-module.exports = function () {
+export default function () {
   return 'version: 1\n' +
       'directus: 9.18.1\n' +
       'collections:\n' +

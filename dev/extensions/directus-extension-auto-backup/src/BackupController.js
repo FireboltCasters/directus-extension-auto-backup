@@ -1,12 +1,14 @@
-const BackupSettings = require("./BackupSettings");
-const BackupControllerSQLITE = require("./BackupControllerSQLITE");
-const fs = require('fs')
-const path = require('path')
-const dateFormat = require('date-fns/format')
-const BackupLogger = require("./BackupLogger");
+import {BackupSettings} from "./BackupSettings";
+import {BackupControllerSQLITE} from "./BackupControllerSQLITE";
+import fs from 'fs';
+import path from 'path';
+import dateFormat from 'date-fns/format';
+import {BackupLogger} from "./BackupLogger";
+
+
 const env = process.env;
 
-module.exports = class BackupController {
+export class BackupController {
 
     constructor(services, database, schema) {
         this.database = database;
