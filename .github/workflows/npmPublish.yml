@@ -15,8 +15,8 @@ jobs:
           registry-url: 'https://registry.npmjs.org'
       - run: git config --global user.name 'Firebolt Caster'
       - run: git config --global user.email 'nilsbaumgartner@live.de'
-      - run: cp README.md ./dev/directus-extension-hook-auto-backup/README.md
-      - run: cd ./dev/directus-extension-hook-auto-backup && npm ci
-      - run: cd ./dev/directus-extension-hook-auto-backup && npm run release
+      - run: cp README.md ./dev/extensions/directus-extension-auto-backup/README.md
+      - run: cd ./dev/extensions/directus-extension-auto-backup && npm ci
+      - run: cd ./dev/extensions/directus-extension-auto-backup && npm run release
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
